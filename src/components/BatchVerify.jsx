@@ -74,7 +74,6 @@ export default function BatchVerify({ apiKey }) {
       <div className="card">
         <div className="card-title">Batch Upload</div>
         <div className="card-subtitle">Upload multiple label images at once. Select any label in the grid to see its full results.</div>
-
         <div
           className={`upload-zone ${dragging ? "dragging" : ""}`}
           onClick={() => fileRef.current.click()}
@@ -97,29 +96,28 @@ export default function BatchVerify({ apiKey }) {
                 <div className="stat-item"><span className="stat-number" style={{ color: "var(--pass)" }}>{passCount}</span><span className="stat-label">Passed</span></div>
                 <div className="stat-item"><span className="stat-number" style={{ color: "var(--warn)" }}>{warnCount}</span><span className="stat-label">Review</span></div>
                 <div className="stat-item"><span className="stat-number" style={{ color: "var(--fail)" }}>{failCount}</span><span className="stat-label">Failed</span></div>
-                {errorCount > 0 && <div className="stat-item"><span className="stat-number" style={{ color: "var(--gray-400)" }}>{errorCount}</span><span className="stat-label">Errors</span></div>}
+                {errorCount > 0 && (
+                  <div className="stat-item"><span className="stat-number" style={{ color: "var(--gray-400)" }}>{errorCount}</span><span className="stat-label">Errors</span></div>
+                )}
               </div>
             )}
-
             {running && (
               <div style={{ marginTop: 12, marginBottom: 4 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--gray-600)", marginBottom: 6 }}>
-                  <span><span className="spinner spinner-dark" style={{ width: 14, height: 14, borderWidth: 2 }} />Processing {processingCount} label{processingCount !== 1 ? "s" : ""} simultaneously...</span>
+                  <span>Processing {processingCount} label{processingCount !== 1 ? "s" : ""} simultaneously...</span>
                   <span>{doneCount + errorCount} of {items.length} complete</span>
                 </div>
                 <div className="progress-bar-wrap"><div className="progress-bar-fill" style={{ width: `${progress}%` }} /></div>
               </div>
             )}
-
             <div className="btn-row">
               {queuedCount > 0 && (
                 <button className="btn-primary" onClick={runBatch} disabled={running}>
-                  {running ? <><span className="spinner" />Running...</> : `Verify ${queuedCount} Label${queuedCount !== 1 ? "s" : ""}`}
+                  {running ? "Running..." : `Verify ${queuedCount} Label${queuedCount !== 1 ? "s" : ""}`}
                 </button>
               )}
               <button className="btn-secondary" onClick={() => { setItems([]); setSelected(null); }} disabled={running}>Clear All</button>
             </div>
-
             <div className="batch-grid" style={{ marginTop: 20 }}>
               {items.map((item) => (
                 <div
@@ -132,7 +130,7 @@ export default function BatchVerify({ apiKey }) {
                     <span className="batch-item-name" title={item.file.name}>{item.file.name}</span>
                     <StatusBadge status={item.status} result={item.result} />
                     {!running && (
-                      <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--gray-400)", fontSize: "0.8rem", padding: "0 4px" }} onClick={(e) => { e.stopPropagation(); removeItem(item.id); }}>✕</button>
+                      <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--gray-400)", fontSize: "0.8rem", padding: "0 4px" }} onClick={(e) => { e.stopPropagation(); removeItem(item.id); }}>x</button>
                     )}
                   </div>
                   <div className="batch-item-body">
@@ -140,14 +138,14 @@ export default function BatchVerify({ apiKey }) {
                     <div className="batch-summary">
                       {item.status === "done" && item.result && (
                         item.result.overallStatus === "pass"
-                          ? <span style={{ color: "var(--pass)" }}>✓ All fields verified</span>
+                          ? <span style={{ color: "var(--pass)" }}>All fields verified</span>
                           : item.result.fields.filter((f) => f.status !== "pass" && f.status !== "missing").map((f) => (
-                              <span key={f.key} style={{ color: f.status === "fail" ? "var(--fail)" : "var(--warn)" }}>{f.status === "fail" ? "✗" : "⚠"} {f.label}</span>
+                              <span key={f.key} style={{ color: f.status === "fail" ? "var(--fail)" : "var(--warn)" }}>{f.label}: {f.status}</span>
                             ))
                       )}
                       {item.status === "error" && <span style={{ color: "var(--fail)" }}>Processing error</span>}
                       {item.status === "queued" && <span>Waiting to process</span>}
-                      {item.status === "processing" && <span><span className="spinner spinner-dark" style={{ width: 12, height: 12, borderWidth: 2 }} /> Analyzing...</span>}
+                      {item.status === "processing" && <span>Analyzing...</span>}
                     </div>
                   </div>
                 </div>
@@ -165,4 +163,33 @@ export default function BatchVerify({ apiKey }) {
               <div className="card-subtitle" style={{ marginBottom: 0 }}>Field-by-field results</div>
             </div>
             <span className={`result-verdict ${selectedItem.result.overallStatus}`}>
-              {selectedItem.result.overallStatus ===
+              {selectedItem.result.overallStatus === "pass" && "PASSED"}
+              {selectedItem.result.overallStatus === "warn" && "REVIEW REQUIRED"}
+              {selectedItem.result.overallStatus === "fail" && "DEFICIENCIES FOUND"}
+            </span>
+          </div>
+          <div className="field-results">
+            {selectedItem.result.fields.map((f) => (
+              <FieldResultRow key={f.key} field={f} />
+            ))}
+          </div>
+          <p style={{ fontSize: "0.8rem", color: "var(--gray-400)", marginTop: 16 }}>
+            Note: In batch mode, application data fields are not pre-filled. Use the single label view to verify against specific application data.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status, result }) {
+  if (status === "queued") return <span className="badge badge-processing">Queued</span>;
+  if (status === "processing") return <span className="badge badge-processing">Processing</span>;
+  if (status === "error") return <span className="badge badge-fail">Error</span>;
+  if (status === "done" && result) {
+    const cls = { pass: "badge-pass", warn: "badge-warn", fail: "badge-fail" }[result.overallStatus];
+    const label = { pass: "Pass", warn: "Review", fail: "Fail" }[result.overallStatus];
+    return <span className={`badge ${cls}`}>{label}</span>;
+  }
+  return null;
+}
